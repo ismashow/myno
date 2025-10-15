@@ -6,11 +6,13 @@ import 'dart:ui';
 class NotebookCard extends StatelessWidget {
   final Notebook notebook;
   final VoidCallback? onLongPress;
+  final VoidCallback onDataChanged;
 
   const NotebookCard({
     super.key,
     required this.notebook,
     this.onLongPress,
+    required this.onDataChanged,
   });
 
   @override
@@ -24,7 +26,10 @@ class NotebookCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => NotebookScreen(notebook: notebook),
+                builder: (context) => NotebookScreen(
+                  notebook: notebook,
+                  onDataChanged: onDataChanged,
+                ),
               ),
             );
           },

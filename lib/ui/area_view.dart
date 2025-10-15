@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import '../models/notebook_models.dart';
-import 'add_notebook_card.dart'; // Importa o widget do card de adicionar
-import 'notebook_card.dart'; // Importa o widget do card de caderno
+import 'add_notebook_card.dart';
+import 'notebook_card.dart';
 
 class AreaView extends StatelessWidget {
   final Area area;
   final Function(String) onAddNotebook;
   final Function(Notebook) onDeleteNotebook;
+  final VoidCallback onDataChanged;
 
   const AreaView({
     super.key,
     required this.area,
     required this.onAddNotebook,
     required this.onDeleteNotebook,
+    required this.onDataChanged,
   });
 
-  // Função para mostrar a caixa de diálogo de criação de caderno
   void _showAddNotebookDialog(BuildContext context) {
     final controller = TextEditingController();
     showDialog(
@@ -78,22 +79,18 @@ class AreaView extends StatelessWidget {
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
-            // O total de itens é a lista de cadernos + 1 (para o botão de adicionar)
             itemCount: area.notebooks.length + 1,
             itemBuilder: (context, index) {
-              // O primeiro item (índice 0) é sempre o botão de adicionar
               if (index == 0) {
-                // CORREÇÃO: Usando a classe renomeada 'AddNotebookCard'
                 return AddNotebookCard(
                   onTap: () => _showAddNotebookDialog(context),
                 );
               }
-              // Para os outros itens, pegamos o caderno correspondente na lista
               final notebook = area.notebooks[index - 1];
-              // CORREÇÃO: Usando a classe 'NotebookCard' para exibir o caderno
               return NotebookCard(
                 notebook: notebook,
                 onLongPress: () => onDeleteNotebook(notebook),
+                onDataChanged: onDataChanged,
               );
             },
           ),

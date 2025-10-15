@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import '../models/notebook_models.dart';
-import 'page_screen.dart'; // Importa a nova tela de escrita
+import 'page_screen.dart';
 
 class NotebookScreen extends StatefulWidget {
   final Notebook notebook;
+  final VoidCallback onDataChanged;
 
-  const NotebookScreen({super.key, required this.notebook});
+  const NotebookScreen({
+    super.key,
+    required this.notebook,
+    required this.onDataChanged,
+  });
 
   @override
   State<NotebookScreen> createState() => _NotebookScreenState();
@@ -26,7 +31,6 @@ class _NotebookScreenState extends State<NotebookScreen> {
     super.dispose();
   }
 
-  // MUDANÇA: Adiciona um novo tópico (sub-caderno)
   void _addTopic() {
     if (_topicController.text.isNotEmpty) {
       setState(() {
@@ -37,10 +41,10 @@ class _NotebookScreenState extends State<NotebookScreen> {
         widget.notebook.topics.add(newTopic);
         _topicController.clear();
       });
+      widget.onDataChanged();
     }
   }
 
-  // MUDANÇA: Deleta um tópico (sub-caderno)
   void _deleteTopic(SubNotebook topic) {
     showDialog(
       context: context,
@@ -62,6 +66,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
               setState(() {
                 widget.notebook.topics.remove(topic);
               });
+              widget.onDataChanged();
               Navigator.pop(context);
             },
             child: const Text('Excluir', style: TextStyle(color: Colors.white)),
@@ -107,12 +112,14 @@ class _NotebookScreenState extends State<NotebookScreen> {
                             color: Colors.redAccent),
                         onPressed: () => _deleteTopic(topic),
                       ),
-                      // MUDANÇA: Ao clicar, navega para a PÁGINA DE ESCRITA
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PageScreen(topic: topic),
+                            builder: (context) => PageScreen(
+                              topic: topic,
+                              onSave: widget.onDataChanged,
+                            ),
                           ),
                         );
                       },

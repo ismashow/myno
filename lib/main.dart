@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'models/notebook_models.dart';
 import 'ui/area_view.dart';
 import 'ui/lock_screen.dart';
@@ -33,7 +34,6 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  // Função para navegar para a tela principal
   void _navigateToHome() {
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -42,13 +42,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
-  // Função que será chamada para validar a senha digitada
   Future<bool> _handlePasswordValidation(String enteredPassword) async {
     final prefs = await SharedPreferences.getInstance();
     final savedPassword = prefs.getString('user_password');
     final isValid = savedPassword == enteredPassword;
     if (isValid) {
-      _navigateToHome(); // Navega se a senha for válida
+      _navigateToHome();
     }
     return isValid;
   }
@@ -56,7 +55,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      // Verifica se já existe uma senha salva
       future: SharedPreferences.getInstance()
           .then((prefs) => prefs.containsKey('user_password')),
       builder: (context, snapshot) {
@@ -67,12 +65,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         final hasPassword = snapshot.data ?? false;
 
-        // Sempre mostra a LockScreen, mas configura de acordo com a necessidade
         return LockScreen(
-          isCreatingPassword: !hasPassword, // Se não tem senha, está criando
-          onPasswordCreated: _navigateToHome, // Após criar, navega para home
-          onPasswordValidated:
-              _handlePasswordValidation, // Para validar, usa esta função
+          isCreatingPassword: !hasPassword,
+          onPasswordCreated: _navigateToHome,
+          onPasswordValidated: _handlePasswordValidation,
         );
       },
     );
@@ -89,16 +85,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final PageController _pageController;
   int _currentPage = 0;
-
-  final List<Area> _areas = [
-    Area(id: '1', title: 'Projetos Pessoais', notebooks: []),
-    Area(id: '2', title: 'Trabalho', notebooks: []),
-  ];
+  List<Area> _areas = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.9);
+    _loadData();
   }
 
   @override
@@ -107,16 +101,43 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? areasJson = prefs.getString('app_data');
+
+    if (areasJson != null) {
+      final List<dynamic> decodedJson = jsonDecode(areasJson);
+      setState(() {
+        _areas = decodedJson.map((json) => Area.fromJson(json)).toList();
+      });
+    } else {
+      setState(() {
+        _areas = [
+          Area(id: '1', title: 'Projetos Pessoais', notebooks: []),
+          Area(id: '2', title: 'Trabalho', notebooks: []),
+        ];
+      });
+    }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String areasJson =
+        jsonEncode(_areas.map((area) => area.toJson()).toList());
+    await prefs.setString('app_data', areasJson);
+  }
+
   void _addNotebook(int areaIndex, String title) {
     setState(() {
       final newNotebook = Notebook(
         id: DateTime.now().toString(),
         title: title,
-        // MUDANÇA PRINCIPAL: Um novo caderno agora começa com uma lista de 'topics' vazia.
         topics: [],
       );
       _areas[areaIndex].notebooks.add(newNotebook);
     });
+    _saveData();
   }
 
   void _deleteNotebook(int areaIndex, Notebook notebook) {
@@ -140,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _areas[areaIndex].notebooks.remove(notebook);
               });
+              _saveData();
               Navigator.pop(context);
             },
             child: const Text('Excluir', style: TextStyle(color: Colors.white)),
@@ -180,46 +202,52 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                child: Column(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Bem-vindo(a) de volta!',
-                        style: TextStyle(color: Colors.white70, fontSize: 18)),
-                    Text('Seus Cadernos',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 24.0, vertical: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Bem-vindo(a) de volta!',
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 18)),
+                          Text('Seus Cadernos',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _areas.length,
+                        onPageChanged: (index) =>
+                            setState(() => _currentPage = index),
+                        itemBuilder: (context, index) {
+                          return AreaView(
+                            area: _areas[index],
+                            onAddNotebook: (title) =>
+                                _addNotebook(index, title),
+                            onDeleteNotebook: (notebook) =>
+                                _deleteNotebook(index, notebook),
+                            onDataChanged: _saveData,
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20.0, top: 10),
+                      child: _buildPageIndicator(),
+                    ),
                   ],
                 ),
-              ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _areas.length,
-                  onPageChanged: (index) =>
-                      setState(() => _currentPage = index),
-                  itemBuilder: (context, index) {
-                    return AreaView(
-                      area: _areas[index],
-                      onAddNotebook: (title) => _addNotebook(index, title),
-                      onDeleteNotebook: (notebook) =>
-                          _deleteNotebook(index, notebook),
-                    );
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20.0, top: 10),
-                child: _buildPageIndicator(),
-              ),
-            ],
-          ),
         ),
       ),
     );

@@ -3,8 +3,14 @@ import '../models/notebook_models.dart';
 
 class PageScreen extends StatefulWidget {
   final SubNotebook topic;
+  // CORREÇÃO: Adicionando o parâmetro 'onSave' que estava faltando.
+  final VoidCallback onSave;
 
-  const PageScreen({super.key, required this.topic});
+  const PageScreen({
+    super.key,
+    required this.topic,
+    required this.onSave, // Tornando-o obrigatório no construtor.
+  });
 
   @override
   State<PageScreen> createState() => _PageScreenState();
@@ -16,14 +22,16 @@ class _PageScreenState extends State<PageScreen> {
   @override
   void initState() {
     super.initState();
-    // Inicia o controlador com o texto salvo do tópico.
     _textController = TextEditingController(text: widget.topic.content);
   }
 
   @override
   void dispose() {
-    // SALVAMENTO AUTOMÁTICO: Ao sair da tela, o texto é salvo no tópico.
-    widget.topic.content = _textController.text;
+    // Salva automaticamente ao sair se o texto foi alterado.
+    if (widget.topic.content != _textController.text) {
+      widget.topic.content = _textController.text;
+      widget.onSave(); // Usa o parâmetro para acionar o salvamento.
+    }
     _textController.dispose();
     super.dispose();
   }
@@ -31,7 +39,7 @@ class _PageScreenState extends State<PageScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1B2833), // Cor de fundo geral
+      backgroundColor: const Color(0xFF1B2833),
       appBar: AppBar(
         title: Text(widget.topic.title),
         backgroundColor: Colors.transparent,
@@ -39,14 +47,11 @@ class _PageScreenState extends State<PageScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          // Permite rolar se o teclado aparecer
           padding: const EdgeInsets.all(24.0),
           child: AspectRatio(
-            // Proporção de uma folha A4 (210mm / 297mm)
             aspectRatio: 210 / 297,
             child: Container(
               decoration: BoxDecoration(
-                // A cor que você pediu: rgb(35, 38, 47)
                 color: const Color.fromRGBO(35, 38, 47, 1),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
@@ -62,10 +67,10 @@ class _PageScreenState extends State<PageScreen> {
                 controller: _textController,
                 style: const TextStyle(
                     color: Colors.white, fontSize: 16, height: 1.5),
-                maxLines: null, // Permite infinitas linhas
+                maxLines: null,
                 keyboardType: TextInputType.multiline,
                 decoration: const InputDecoration(
-                  border: InputBorder.none, // Sem bordas
+                  border: InputBorder.none,
                   hintText: 'Comece a escrever...',
                   hintStyle: TextStyle(color: Colors.white38),
                 ),
