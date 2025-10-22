@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/notebook_models.dart';
 import 'page_screen.dart';
-import 'package:file_picker/file_picker.dart'; // Importa a ferramenta para escolher ficheiros
-import 'package:path_provider/path_provider.dart'; // Importa a ferramenta para encontrar pastas
-import 'package:path/path.dart'
-    as p; // Importa a ferramenta para manipular caminhos
-import 'package:open_filex/open_filex.dart'; // Importa a ferramenta para abrir ficheiros
-import 'dart:io'; // Importa as ferramentas de operações de ficheiros
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'dart:io';
+// MUDANÇA: Removemos o 'open_filex' que abre externamente
+// import 'package:open_filex/open_filex.dart';
+// MUDANÇA: Adicionamos a nossa nova tela de visualizador interno
+import 'pdf_viewer_screen.dart';
 
 class NotebookScreen extends StatefulWidget {
   final Notebook notebook;
@@ -25,15 +27,17 @@ class NotebookScreen extends StatefulWidget {
 class _NotebookScreenState extends State<NotebookScreen> {
   final _topicController = TextEditingController();
 
+  // Todo o seu código de _deleteTopic, _confirmDeleteTopic, _showAddOptions,
+  // _showAddTextTopicDialog, e _addPdfTopic continua EXATAMENTE IGUAL.
+  // Cole-o aqui ou use a versão completa abaixo.
+
   @override
   void dispose() {
     _topicController.dispose();
     super.dispose();
   }
 
-  // Lógica para apagar um tópico
   void _deleteTopic(SubNotebook topic) async {
-    // Se o tópico for um PDF, apaga o ficheiro guardado no computador
     if (topic.type == TopicType.pdf) {
       try {
         final file = File(topic.content);
@@ -48,10 +52,9 @@ class _NotebookScreenState extends State<NotebookScreen> {
     setState(() {
       widget.notebook.topics.remove(topic);
     });
-    widget.onDataChanged(); // Salva a lista de tópicos atualizada
+    widget.onDataChanged();
   }
 
-  // Mostra a caixa de diálogo para confirmar a exclusão
   void _confirmDeleteTopic(SubNotebook topic) {
     showDialog(
       context: context,
@@ -80,30 +83,50 @@ class _NotebookScreenState extends State<NotebookScreen> {
     );
   }
 
-  // NOVO: Mostra as opções de "Texto" ou "PDF"
   void _showAddOptions() {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: const Color(0xFF1D2D3A),
-      builder: (context) {
-        return Wrap(
-          children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.text_fields, color: Colors.white),
-              title: const Text('Novo Tópico de Texto',
-                  style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                _showAddTextTopicDialog();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.white),
-              title: const Text('Adicionar PDF do Computador',
-                  style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                _addPdfTopic();
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1D2D3A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Adicionar ao Caderno',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.text_fields, color: Colors.white),
+                title: const Text('Novo Tópico de Texto',
+                    style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showAddTextTopicDialog();
+                },
+              ),
+              const Divider(color: Colors.white24),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                title: const Text('Adicionar PDF do Computador',
+                    style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _addPdfTopic();
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancelar',
+                  style: TextStyle(color: Colors.white70)),
+              onPressed: () {
+                Navigator.of(context).pop();
               },
             ),
           ],
@@ -112,7 +135,6 @@ class _NotebookScreenState extends State<NotebookScreen> {
     );
   }
 
-  // Dialog para adicionar tópico de texto (código antigo)
   void _showAddTextTopicDialog() {
     _topicController.clear();
     showDialog(
@@ -140,7 +162,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
                         widget.notebook.topics.add(SubNotebook(
                           id: DateTime.now().toString(),
                           title: _topicController.text,
-                          type: TopicType.text, // Define o tipo como texto
+                          type: TopicType.text,
                         ));
                       });
                       widget.onDataChanged();
@@ -153,51 +175,43 @@ class _NotebookScreenState extends State<NotebookScreen> {
             ));
   }
 
-  // NOVA FUNÇÃO: Lógica para adicionar um PDF local
   Future<void> _addPdfTopic() async {
     try {
-      // 1. Pedir ao utilizador para escolher um PDF
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
       );
 
       if (result == null || result.files.single.path == null) {
-        return; // O utilizador cancelou
+        return;
       }
 
       final originalFile = File(result.files.single.path!);
       final originalFileName = result.files.single.name;
 
-      // 2. Encontrar a pasta segura da aplicação
       final appDir = await getApplicationDocumentsDirectory();
-      // Cria uma subpasta 'myno_files' para organizar
       final targetDir = Directory(p.join(appDir.path, 'myno_files'));
 
-      // 3. Criar a pasta se ela não existir
       if (!await targetDir.exists()) {
         await targetDir.create(recursive: true);
       }
 
-      // 4. Criar um caminho de destino único para evitar conflitos
       final fileExtension = p.extension(originalFileName);
       final newFileName =
           '${DateTime.now().millisecondsSinceEpoch}$fileExtension';
       final newPath = p.join(targetDir.path, newFileName);
 
-      // 5. Copiar o ficheiro para a pasta segura
       await originalFile.copy(newPath);
 
-      // 6. Adicionar o tópico à lista e salvar
       setState(() {
         widget.notebook.topics.add(SubNotebook(
           id: DateTime.now().toString(),
-          title: originalFileName, // Guarda o nome original para exibição
-          content: newPath, // Guarda o NOVO caminho da cópia segura
-          type: TopicType.pdf, // Define o tipo como PDF
+          title: originalFileName,
+          content: newPath,
+          type: TopicType.pdf,
         ));
       });
-      widget.onDataChanged(); // Salva a alteração
+      widget.onDataChanged();
     } catch (e) {
       print("Erro ao adicionar PDF: $e");
       if (mounted) {
@@ -208,6 +222,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
     }
   }
 
+  // A única alteração é no `build`, na secção `onTap`
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,10 +231,10 @@ class _NotebookScreenState extends State<NotebookScreen> {
         backgroundColor: const Color(0xFF1E3A4B),
         elevation: 0,
       ),
-      // MUDANÇA: O botão de "+" agora chama as novas opções
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddOptions,
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.blue.shade800,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -229,10 +244,8 @@ class _NotebookScreenState extends State<NotebookScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        // MUDANÇA: Não tem mais a coluna nem o _buildTopicInput() aqui
         child: ListView.builder(
-          padding:
-              const EdgeInsets.fromLTRB(8, 8, 8, 80), // Espaço para o botão
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
           itemCount: widget.notebook.topics.length,
           itemBuilder: (context, index) {
             final topic = widget.notebook.topics[index];
@@ -240,11 +253,10 @@ class _NotebookScreenState extends State<NotebookScreen> {
               color: Colors.white.withAlpha(20),
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: ListTile(
-                // MUDANÇA: O ícone muda de acordo com o tipo
                 leading: Icon(
                   topic.type == TopicType.text
-                      ? Icons.notes // Ícone de texto
-                      : Icons.picture_as_pdf_rounded, // Ícone de PDF
+                      ? Icons.notes
+                      : Icons.picture_as_pdf_rounded,
                   color: Colors.white,
                 ),
                 title: Text(topic.title,
@@ -252,13 +264,10 @@ class _NotebookScreenState extends State<NotebookScreen> {
                 trailing: IconButton(
                   icon:
                       const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  onPressed: () =>
-                      _confirmDeleteTopic(topic), // Chama a confirmação
+                  onPressed: () => _confirmDeleteTopic(topic),
                 ),
                 onTap: () async {
-                  // MUDANÇA: A ação de clique muda de acordo com o tipo
                   if (topic.type == TopicType.text) {
-                    // Se for texto, abre a tela de escrita
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -269,17 +278,16 @@ class _NotebookScreenState extends State<NotebookScreen> {
                       ),
                     );
                   } else if (topic.type == TopicType.pdf) {
-                    // Se for PDF, pede ao Windows para abrir
-                    try {
-                      await OpenFilex.open(topic.content);
-                    } catch (e) {
-                      print("Erro ao abrir ficheiro: $e");
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Não foi possível abrir o ficheiro. Pode ter sido movido ou apagado.')),
-                      );
-                    }
+                    // --- MUDANÇA PRINCIPAL AQUI ---
+                    // Em vez de usar OpenFilex, navegamos para a nossa nova tela
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PdfViewerScreen(
+                          filePath: topic.content,
+                        ),
+                      ),
+                    );
                   }
                 },
               ),

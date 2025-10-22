@@ -13,11 +13,15 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.3
 
-  # ESTAS SÃO AS NOVAS FERRAMENTAS QUE ESTAMOS A ADICIONAR
+  # Ferramentas de ficheiros locais (mantemos)
   file_picker: ^8.0.3
   path_provider: ^2.1.3
-  open_filex: ^4.4.0
   path: ^1.9.0
+  
+  # MUDANÇA AQUI:
+  # Removemos o 'open_filex'
+  # E adicionamos o 'pdfx' para o visualizador interno
+  pdfx: ^2.7.0
 
 dev_dependencies:
   flutter_test:
@@ -28,6 +32,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+# A sua configuração de ícones continua exatamente igual
 flutter_launcher_icons:
   windows:
     generate: true
@@ -39,3 +44,4 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/icons/icon.png"
     remove_alpha_ios: true
+
