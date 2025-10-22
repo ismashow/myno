@@ -1,3 +1,6 @@
+// MUDANÇA: O tipo de tópico agora pode ser texto ou pdf.
+enum TopicType { text, pdf }
+
 class Area {
   final String id;
   final String title;
@@ -42,26 +45,41 @@ class Notebook {
       );
 }
 
+// MUDANÇA PRINCIPAL AQUI EMBAIXO
 class SubNotebook {
   final String id;
   final String title;
-  String content;
+  String content; // Para texto OU para o CAMINHO do ficheiro PDF
+  final TopicType type; // O novo campo que diz o que o 'content' é
 
   SubNotebook({
     required this.id,
     required this.title,
     this.content = '',
+    this.type = TopicType.text, // O padrão é ser 'texto'
   });
 
+  // Atualiza o 'toJson' para salvar o tipo
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
         'content': content,
+        'type': type.toString(), // Salva 'TopicType.text' ou 'TopicType.pdf'
       };
 
-  factory SubNotebook.fromJson(Map<String, dynamic> json) => SubNotebook(
-        id: json['id'],
-        title: json['title'],
-        content: json['content'],
-      );
+  // Atualiza o 'fromJson' para ler o tipo
+  factory SubNotebook.fromJson(Map<String, dynamic> json) {
+    return SubNotebook(
+      id: json['id'],
+      title: json['title'],
+      content: json['content'],
+      // Converte o texto 'TopicType.text' de volta para o tipo enum
+      type: TopicType.values.firstWhere(
+        (e) => e.toString() == json['type'],
+        // ISTO SALVA AS SUAS ANOTAÇÕES ANTIGAS!
+        // Se não encontrar um 'tipo', assume que é 'texto'.
+        orElse: () => TopicType.text,
+      ),
+    );
+  }
 }
