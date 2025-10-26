@@ -5,8 +5,6 @@ import 'models/notebook_models.dart';
 import 'ui/area_view.dart';
 import 'ui/lock_screen.dart';
 
-// Removido o import desnecessário de 'ui/notebook_card.dart'
-
 void main() {
   runApp(const MyApp());
 }
@@ -28,7 +26,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// O AuthWrapper continua igual
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -37,6 +34,7 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  // Função para navegar para a tela principal
   void _navigateToHome() {
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -45,12 +43,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
+  // Função que será chamada para validar a senha digitada
   Future<bool> _handlePasswordValidation(String enteredPassword) async {
     final prefs = await SharedPreferences.getInstance();
     final savedPassword = prefs.getString('user_password');
     final isValid = savedPassword == enteredPassword;
     if (isValid) {
-      _navigateToHome();
+      _navigateToHome(); // Navega se a senha for válida
     }
     return isValid;
   }
@@ -58,6 +57,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
+      // Verifica se já existe uma senha salva
       future: SharedPreferences.getInstance()
           .then((prefs) => prefs.containsKey('user_password')),
       builder: (context, snapshot) {
@@ -68,17 +68,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         final hasPassword = snapshot.data ?? false;
 
+        // Sempre mostra a LockScreen, mas configura de acordo com a necessidade
         return LockScreen(
-          isCreatingPassword: !hasPassword,
-          onPasswordCreated: _navigateToHome,
-          onPasswordValidated: _handlePasswordValidation,
+          isCreatingPassword: !hasPassword, // Se não tem senha, está a criar
+          onPasswordCreated: _navigateToHome, // Após criar, navega para home
+          onPasswordValidated:
+              _handlePasswordValidation, // Para validar, usa esta função
         );
       },
     );
   }
 }
 
-// O HomeScreen é onde as principais alterações ocorrem
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -140,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // NOVA FUNÇÃO: Retorna a lista de áreas padrão
+  // Função que retorna a lista de áreas padrão
   List<Area> _getDefaultAreas() {
     return [
       Area(id: '1', title: 'Projetos Pessoais', notebooks: []),
@@ -178,9 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
         id: DateTime.now().toString(),
         title: title,
         topics: [],
-        // GUARDA O ANO ATUAL
         creationYear: DateTime.now().year,
-        // DEFINE A TAG PADRÃO (pode alterar se quiser)
         statusTag: StatusTag.caixaDeIdeias,
       );
       _areas[areaIndex].notebooks.add(newNotebook);
@@ -224,6 +223,117 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  // --- NOVA FUNÇÃO: Mostra o diálogo para escolher a Área de destino ---
+  void _showMoveNotebookDialog(Notebook notebookToMove) {
+    // Encontra a área atual do caderno a ser movido
+    Area? currentArea = _areas.firstWhere(
+      (area) => area.notebooks.any(
+          (nb) => nb.id == notebookToMove.id), // Compara por ID para segurança
+      orElse: () {
+        print(
+            "Erro: Não foi possível encontrar a área atual do caderno a ser movido.");
+        return _areas.first; // Retorna a primeira como fallback
+      },
+    );
+
+    // Se por algum motivo a área atual não foi encontrada (improvável)
+    if (currentArea == null) return;
+
+    // Cria a lista de áreas de destino possíveis (todas exceto a atual)
+    final destinationAreas =
+        _areas.where((area) => area.id != currentArea.id).toList();
+
+    // Se só existir uma área no total, não há para onde mover
+    if (destinationAreas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Não existem outras Áreas para mover o caderno.')),
+      );
+      return;
+    }
+
+    Area? selectedDestination =
+        destinationAreas.first; // Pré-seleciona a primeira área de destino
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        // Usa StatefulBuilder para permitir atualizar a seleção dentro do diálogo
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1D2D3A),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15)),
+              title: Text('Mover "${notebookToMove.title}" para:',
+                  style: const TextStyle(color: Colors.white)),
+              content: SingleChildScrollView(
+                // Permite rolar se houver muitas áreas
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: destinationAreas.map((area) {
+                    // Cria uma opção de rádio para cada área de destino
+                    return RadioListTile<Area>(
+                      title: Text(area.title,
+                          style: const TextStyle(color: Colors.white)),
+                      value: area, // O valor desta opção é a própria Área
+                      groupValue:
+                          selectedDestination, // A área atualmente selecionada
+                      onChanged: (Area? value) {
+                        // Quando uma opção é selecionada, atualiza o estado do diálogo
+                        if (value != null) {
+                          setDialogState(() {
+                            selectedDestination = value;
+                          });
+                        }
+                      },
+                      activeColor:
+                          Colors.tealAccent, // Cor da bolinha selecionada
+                      controlAffinity:
+                          ListTileControlAffinity.trailing, // Bolinha à direita
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancelar',
+                      style: TextStyle(color: Colors.white70)),
+                  onPressed: () =>
+                      Navigator.of(context).pop(), // Fecha o diálogo
+                ),
+                ElevatedButton(
+                  child: const Text('Mover'),
+                  onPressed: () {
+                    // Se uma área de destino foi selecionada, chama a função para mover
+                    if (selectedDestination != null) {
+                      _moveNotebook(
+                          notebookToMove, currentArea, selectedDestination!);
+                    }
+                    Navigator.of(context).pop(); // Fecha o diálogo
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- NOVA FUNÇÃO: Realiza a movimentação do caderno entre as listas ---
+  void _moveNotebook(
+      Notebook notebook, Area currentArea, Area destinationArea) {
+    setState(() {
+      // Remove o caderno da lista da área atual
+      currentArea.notebooks
+          .removeWhere((nb) => nb.id == notebook.id); // Remove por ID
+      // Adiciona o caderno à lista da área de destino
+      destinationArea.notebooks.add(notebook);
+    });
+    _saveData(); // Guarda a alteração nos dados permanentes
   }
 
   // Widget para os pontinhos do indicador de página
@@ -310,9 +420,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _addNotebook(index, title),
                                     onDeleteNotebook: (notebook) =>
                                         _deleteNotebook(index, notebook),
-                                    // Passa a função _saveData para o AreaView
-                                    // (necessário se o AreaView precisar de guardar alterações, como mudar a tag)
                                     onDataChanged: _saveData,
+                                    // --- PASSAMOS A NOVA FUNÇÃO PARA O AREA VIEW ---
+                                    onNotebookMoveRequested:
+                                        _showMoveNotebookDialog,
                                   ),
                                 );
                               },

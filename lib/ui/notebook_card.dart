@@ -6,21 +6,22 @@ import 'dart:ui';
 class NotebookCard extends StatelessWidget {
   final Notebook notebook;
   final VoidCallback? onLongPress; // Para apagar
-  final VoidCallback onDataChanged; // Para salvar após mudar tag
-  // NOVA FUNÇÃO: Chamada quando o botão de tag é clicado
-  final Function(Notebook) onTagChangeRequested;
+  final VoidCallback onDataChanged; // Para salvar após mudar tag ou mover
+  final Function(Notebook) onTagChangeRequested; // Para mudar tag
+  // NOVA FUNÇÃO: Chamada quando o botão MOVER é clicado
+  final Function(Notebook) onMoveRequested;
 
   const NotebookCard({
     super.key,
     required this.notebook,
     this.onLongPress,
     required this.onDataChanged,
-    required this.onTagChangeRequested, // Torna obrigatório
+    required this.onTagChangeRequested,
+    required this.onMoveRequested, // Torna obrigatório
   });
 
   @override
   Widget build(BuildContext context) {
-    // Cor baseada na tag (opcional, para visualização)
     Color tagColor = _getTagColor(notebook.statusTag);
 
     return ClipRRect(
@@ -37,11 +38,11 @@ class NotebookCard extends StatelessWidget {
             ),
           ),
           child: Stack(
-            // Usamos Stack para posicionar o botão de tag
             children: [
-              // Conteúdo principal do card (ícone e título)
+              // Conteúdo principal (clicável para abrir)
               GestureDetector(
                 onTap: () {
+                  /* Navega para NotebookScreen */
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -52,57 +53,61 @@ class NotebookCard extends StatelessWidget {
                     ),
                   );
                 },
-                onLongPress: onLongPress, // Mantém a função de apagar
+                onLongPress: onLongPress, // Mantém apagar com toque longo
                 child: Container(
-                  // Container extra para garantir que o GestureDetector ocupe a área
-                  color: Colors
-                      .transparent, // Transparente para não afetar o visual
+                  color:
+                      Colors.transparent, // Garante que toda a área é clicável
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.book_rounded,
-                        color: Colors.white
-                            .withOpacity(0.8), // Levemente transparente
-                        size: 40,
-                      ),
+                      const Icon(Icons.book_rounded,
+                          color: Colors.white70, size: 40),
                       const SizedBox(height: 12),
                       Text(
                         notebook.title,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      // Mostra a tag atual (opcional)
                       const SizedBox(height: 8),
                       Text(
                         statusTagToString(notebook.statusTag),
                         style: TextStyle(
-                          color: tagColor.withOpacity(0.9),
-                          fontSize: 12,
-                        ),
+                            color: tagColor.withOpacity(0.9), fontSize: 12),
                       ),
                     ],
                   ),
                 ),
               ),
-              // NOVO: Botão para alterar a tag posicionado no canto superior direito
+              // Botões no topo
               Positioned(
-                top: 4,
-                right: 4,
-                child: IconButton(
-                  icon: Icon(Icons.sell_outlined,
-                      color: tagColor), // Ícone de etiqueta
-                  tooltip:
-                      'Alterar Tag de Estado', // Texto ao passar o rato por cima
-                  onPressed: () => onTagChangeRequested(notebook),
+                top: 0,
+                right: 0,
+                child: Row(
+                  // Row para colocar botões lado a lado
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Botão Mover (NOVO)
+                    IconButton(
+                      icon: Icon(Icons.open_with,
+                          color: Colors.blueGrey.shade200,
+                          size: 20), // Ícone de mover
+                      tooltip: 'Mover Caderno para outra Área',
+                      onPressed: () => onMoveRequested(notebook),
+                    ),
+                    // Botão Alterar Tag
+                    IconButton(
+                      icon:
+                          Icon(Icons.sell_outlined, color: tagColor, size: 20),
+                      tooltip: 'Alterar Tag de Estado',
+                      onPressed: () => onTagChangeRequested(notebook),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -112,7 +117,7 @@ class NotebookCard extends StatelessWidget {
     );
   }
 
-  // Função auxiliar para dar uma cor a cada tag (opcional)
+  // Função auxiliar para cor da tag (igual a antes)
   Color _getTagColor(StatusTag tag) {
     switch (tag) {
       case StatusTag.caixaDeIdeias:

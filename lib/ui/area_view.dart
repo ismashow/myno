@@ -6,9 +6,12 @@ import 'dart:collection'; // Para usar SplayTreeSet para anos ordenados
 
 class AreaView extends StatefulWidget {
   final Area area;
-  final Function(String) onAddNotebook;
-  final Function(Notebook) onDeleteNotebook;
-  final VoidCallback onDataChanged;
+  final Function(String) onAddNotebook; // Função para adicionar novo caderno
+  final Function(Notebook) onDeleteNotebook; // Função para apagar caderno
+  final VoidCallback
+      onDataChanged; // Função para guardar alterações (ex: mudar tag)
+  // NOVA FUNÇÃO: Recebe a instrução para iniciar a movimentação do caderno
+  final Function(Notebook) onNotebookMoveRequested;
 
   const AreaView({
     super.key,
@@ -16,6 +19,7 @@ class AreaView extends StatefulWidget {
     required this.onAddNotebook,
     required this.onDeleteNotebook,
     required this.onDataChanged,
+    required this.onNotebookMoveRequested, // Torna obrigatório receber esta função
   });
 
   @override
@@ -26,7 +30,7 @@ class _AreaViewState extends State<AreaView> {
   StatusTag _selectedFilter = StatusTag.nenhum; // Filtro de tag ativo
   int? _selectedYear; // Filtro de ano ativo (null = todos os anos)
 
-  // --- NOVA FUNÇÃO: Mostra o diálogo para escolher a nova tag ---
+  // Função que mostra o diálogo para escolher a nova tag
   void _showChangeTagDialog(Notebook notebook) {
     StatusTag? tempSelectedTag =
         notebook.statusTag; // Guarda a tag selecionada no diálogo
@@ -105,7 +109,7 @@ class _AreaViewState extends State<AreaView> {
     );
   }
 
-  // --- O resto das funções (_showAddNotebookDialog, _getFilteredNotebooks, etc.) continuam iguais ---
+  // Função para mostrar o diálogo de criação de caderno
   void _showAddNotebookDialog(BuildContext context) {
     final controller = TextEditingController();
     showDialog(
@@ -132,6 +136,7 @@ class _AreaViewState extends State<AreaView> {
           ElevatedButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
+                // Chama a função passada pelo HomeScreen para adicionar
                 widget.onAddNotebook(controller.text);
               }
               Navigator.pop(context);
@@ -143,23 +148,30 @@ class _AreaViewState extends State<AreaView> {
     );
   }
 
+  // Função que aplica os filtros de ano e tag
   List<Notebook> _getFilteredNotebooks() {
     return widget.area.notebooks.where((notebook) {
+      // Verifica o filtro de ano
       final yearMatch =
           _selectedYear == null || notebook.creationYear == _selectedYear;
+      // Verifica o filtro de tag
       final tagMatch = _selectedFilter == StatusTag.nenhum ||
           notebook.statusTag == _selectedFilter;
+      // O caderno só passa se ambos os filtros corresponderem
       return yearMatch && tagMatch;
     }).toList();
   }
 
+  // Widget Dropdown para selecionar o ano
   Widget _buildYearSelector() {
+    // Obtém todos os anos únicos dos cadernos e ordena-os
     final years = SplayTreeSet<int>.from(
       widget.area.notebooks.map((nb) => nb.creationYear),
     );
+    // Cria os itens do dropdown, adicionando "Todos os Anos" no início
     final items = [
       const DropdownMenuItem<int?>(
-        value: null,
+        value: null, // Valor nulo representa "todos"
         child: Text("Todos os Anos", style: TextStyle(color: Colors.white70)),
       ),
       ...years.map((year) => DropdownMenuItem<int?>(
@@ -169,7 +181,7 @@ class _AreaViewState extends State<AreaView> {
           )),
     ];
 
-    // Para evitar erro se não houver cadernos com ano definido
+    // Garante que o valor selecionado existe na lista (evita erro se filtrar e depois remover cadernos)
     final currentSelectedYear =
         years.contains(_selectedYear) ? _selectedYear : null;
 
@@ -181,14 +193,17 @@ class _AreaViewState extends State<AreaView> {
           _selectedYear = newValue;
         });
       },
+      // Estilo do dropdown
       dropdownColor: const Color(0xFF1D2D3A),
-      underline: Container(),
+      underline: Container(), // Remove a linha de baixo padrão
       icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
       style: const TextStyle(color: Colors.white),
     );
   }
 
+  // Widget Dropdown para selecionar a tag
   Widget _buildTagFilter() {
+    // Lista de todas as tags possíveis, incluindo "Todas as Tags"
     final tags = [
       StatusTag.nenhum,
       ...StatusTag.values.where((t) => t != StatusTag.nenhum)
@@ -222,16 +237,19 @@ class _AreaViewState extends State<AreaView> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtém a lista filtrada no início do build
     final filteredNotebooks = _getFilteredNotebooks();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Linha com Título e Filtros
         Padding(
           padding: const EdgeInsets.only(
               left: 24.0, right: 16.0, top: 8.0, bottom: 0),
           child: Row(
             children: [
+              // Título da Área
               Text(
                 widget.area.title,
                 style: const TextStyle(
@@ -240,13 +258,16 @@ class _AreaViewState extends State<AreaView> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 8), // Pequeno espaço
+              // Seletor de Ano
               _buildYearSelector(),
-              const Spacer(),
+              const Spacer(), // Empurra o filtro de tag para a direita
+              // Filtro de Tag
               _buildTagFilter(),
             ],
           ),
         ),
+        // Grelha de Cadernos
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.all(16),
@@ -256,21 +277,25 @@ class _AreaViewState extends State<AreaView> {
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
-            itemCount: filteredNotebooks.length + 1,
+            itemCount:
+                filteredNotebooks.length + 1, // +1 para o botão adicionar
             itemBuilder: (context, index) {
+              // O primeiro item é sempre o botão de adicionar
               if (index == 0) {
                 return AddNotebookCard(
                   onTap: () => _showAddNotebookDialog(context),
                 );
               }
+              // Os restantes itens são os cadernos filtrados
               final notebook = filteredNotebooks[index - 1];
-              // --- PASSAMOS A NOVA FUNÇÃO PARA O CARD ---
+              // Passa todas as funções necessárias para o NotebookCard
               return NotebookCard(
                 notebook: notebook,
-                onLongPress: () => widget.onDeleteNotebook(notebook),
-                onDataChanged: widget.onDataChanged,
-                onTagChangeRequested:
-                    _showChangeTagDialog, // Passa a função aqui
+                onLongPress: () => widget.onDeleteNotebook(notebook), // Apagar
+                onDataChanged: widget.onDataChanged, // Guardar (após mudar tag)
+                onTagChangeRequested: _showChangeTagDialog, // Mudar tag
+                onMoveRequested:
+                    widget.onNotebookMoveRequested, // Mover caderno
               );
             },
           ),
